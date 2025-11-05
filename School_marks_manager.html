@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>School Marks Manager</title>
+<style>
+body { font-family:"Segoe UI", Arial, sans-serif; background:#f2f5f9; margin:0; padding:0; }
+header { background: linear-gradient(90deg,#0074D9,#005fa3); color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; font-size:18px; box-shadow:0 2px 6px rgba(0,0,0,0.15);}
+#navMenu { background:white; padding:10px 20px; display:flex; flex-wrap:wrap; gap:10px; box-shadow:0 2px 4px rgba(0,0,0,0.05);}
+#navMenu button { border:none; background:#0074D9; color:white; cursor:pointer; border-radius:6px; padding:8px 16px; font-size:15px; transition:0.2s;}
+#navMenu button:hover { background:#005fa3;}
+.container { padding:20px;}
+.hidden { display:none;}
+.tab { display:none;}
+.tab.active { display:block;}
+h3 { margin-top:0; color:#005fa3;}
+input, select, textarea { padding:8px; margin:5px 0; width:100%; max-width:320px; border-radius:6px; border:1px solid #ccc; font-size:14px;}
+button { margin-top:8px; padding:8px 16px; border-radius:6px; background:#0074D9; color:white; border:none; cursor:pointer; transition:0.2s;}
+button:hover { background:#005fa3;}
+table { width:100%; border-collapse:collapse; margin-top:15px; background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.05);}
+th { background:#0074D9; color:white; padding:10px; text-align:left;}
+td { padding:8px 10px; border-bottom:1px solid #f0f0f0;}
+tr:nth-child(even){ background:#f9fbfd;}
+#loginScreen { max-width:400px; margin:60px auto; background:white; padding:25px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.1);}
+#loginScreen h2 { color:#0074D9; text-align:center;}
+.flex-row { display:flex; gap:10px; flex-wrap:wrap;}
+.dashboard-card { background:white; padding:15px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.05); margin-bottom:15px; }
+.delete-btn { background:#dc3545;color:white;border:none;border-radius:5px;padding:3px 6px;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" class="container">
+<h2>School Marks Manager — Login</h2>
+<p id="loginMsg" style="color:red;"></p>
+<label>Username:</label><br>
+<input id="username" type="text" placeholder="Enter username"><br>
+<label>Password:</label><br>
+<input id="password" type="password" placeholder="Enter password"><br>
+<label>Role:</label><br>
+<select id="role">
+<option value="admin">Admin</option>
+<option value="teacher">Teacher</option>
+<option value="headteacher">Headteacher</option>
+<option value="dos">DOS</option>
+</select><br><br>
+<button onclick="login()">Login</button>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" class="hidden">
+<header>
+<div id="userInfo"></div>
+<button onclick="logout()">Logout</button>
+</header>
+
+<nav id="navMenu" class="container"></nav>
+
+<div class="container">
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="tab"><h3>Dashboard</h3><div id="dashboardContent" class="flex-row"></div></div>
+
+  <!-- LEARNERS -->
+  <div id="learners" class="tab">
+    <h3>Manage Learners</h3>
+    <input id="newSid" placeholder="Student ID"><br>
+    <input id="newName" placeholder="Full Name"><br>
+    <input id="newClass" placeholder="Class"><br>
+    <button onclick="addLearner()">Add Learner</button>
+    <div id="learnerList"></div>
+  </div>
+
+  <!-- USERS -->
+  <div id="users" class="tab">
+    <h3>Manage Users</h3>
+    <input id="newUsername" placeholder="Username"><br>
+    <input id="newPassword" placeholder="Password"><br>
+    <select id="newRole">
+      <option value="teacher">Teacher</option>
+      <option value="headteacher">Headteacher</option>
+      <option value="dos">DOS</option>
+    </select><br>
+    <button onclick="addUser()">Add User</button>
+    <div id="userList"></div>
+  </div>
+
+  <!-- SUBJECTS -->
+  <div id="subjects" class="tab">
+    <h3>Manage Subjects</h3>
+    <input id="newSubject" placeholder="Enter new subject"><br>
+    <button onclick="addSubject()">Add Subject</button>
+    <div id="subjectList"></div>
+  </div>
+
+  <!-- MARKS -->
+  <div id="marks" class="tab">
+    <h3>Manage Marks</h3>
+    <select id="markStudent"></select><br>
+    <select id="markSubject"></select><br>
+    <input id="markScore" type="number" placeholder="Enter mark (0-100)"><br>
+    <button onclick="addMark()">Save Mark</button>
+    <div id="marksList"></div>
+  </div>
+
+  <!-- CREATE SUBJECTS (Bulk) -->
+  <div id="createSubjects" class="tab">
+    <h3>Create and Add Subjects</h3>
+    <p>Enter subject names separated by commas or line breaks.</p>
+    <textarea id="bulkSubjects" style="width:100%;height:100px;border:1px solid #ccc;border-radius:6px;padding:8px;"></textarea><br>
+    <button onclick="bulkAddSubjects()">Add Subjects</button>
+    <div id="bulkSubjectStatus" style="margin-top:10px;color:green;"></div>
+  </div>
+</div>
+</div>
+
+<script>
+// -------- DATA --------
+let USERS = JSON.parse(localStorage.getItem("schoolUsers")) || [
+  { username:"admin", password:"1234", role:"admin" },
+  { username:"teacher1", password:"1234", role:"teacher" }
+];
+let learners = JSON.parse(localStorage.getItem("schoolLearners")) || [];
+let subjects = JSON.parse(localStorage.getItem("schoolSubjects")) || ["Math","English"];
+let marks = JSON.parse(localStorage.getItem("schoolMarks")) || [];
+let currentUser = null;
+
+// -------- LOGIN --------
+function login(){
+  const role = document.getElementById("role").value;
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value.trim();
+  const user = USERS.find(u => u.username===username && u.password===password && u.role===role);
+  if(!user) return document.getElementById("loginMsg").textContent="Invalid login!";
+  currentUser = user;
+  document.getElementById("loginScreen").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  document.getElementById("userInfo").textContent = `${user.username} (${user.role})`;
+  buildMenu(user.role);
+  openTab("dashboard");
+}
+
+function logout(){
+  location.reload();
+}
+
+// -------- MENU --------
+function buildMenu(role){
+  const nav = document.getElementById("navMenu");
+  nav.innerHTML = "";
+  const addButton = (tab,label) => nav.innerHTML += `<button onclick="openTab('${tab}')">${label}</button>`;
+  addButton("dashboard","Dashboard");
+  if(role==="admin") addButton("learners","Learners");
+  if(role==="admin") addButton("users","Users");
+  addButton("subjects","Subjects");
+  addButton("marks","Marks");
+  addButton("createSubjects","Create Subjects");
+}
+
+// -------- TABS --------
+function openTab(tab){
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.getElementById(tab).classList.add("active");
+  if(tab==="dashboard") renderDashboard();
+  if(tab==="learners") displayLearners();
+  if(tab==="users") displayUsers();
+  if(tab==="subjects") displaySubjects();
+  if(tab==="marks") showMarksTab();
+}
+
+// -------- DASHBOARD --------
+function renderDashboard(){
+  const div = document.getElementById("dashboardContent");
+  div.innerHTML = `
+    <div class="dashboard-card">Total Learners: ${learners.length}</div>
+    <div class="dashboard-card">Total Teachers: ${USERS.filter(u=>u.role==="teacher").length}</div>
+    <div class="dashboard-card">Total Subjects: ${subjects.length}</div>
+  `;
+}
+
+// -------- LEARNERS --------
+function addLearner(){
+  const sid = document.getElementById("newSid").value.trim();
+  const name = document.getElementById("newName").value.trim();
+  const cls = document.getElementById("newClass").value.trim();
+  if(!sid || !name || !cls) return alert("Fill all fields!");
+  learners.push({sid,name,class:cls});
+  localStorage.setItem("schoolLearners", JSON.stringify(learners));
+  displayLearners();
+}
+
+function displayLearners(){
+  const div = document.getElementById("learnerList");
+  if(learners.length===0) return div.innerHTML = "<p>No learners yet.</p>";
+  let html = `<table><tr><th>#</th><th>ID</th><th>Name</th><th>Class</th><th>Action</th></tr>`;
+  learners.forEach((l,i) => {
+    html += `<tr>
+      <td>${i+1}</td>
+      <td>${l.sid}</td>
+      <td>${l.name}</td>
+      <td>${l.class}</td>
+      <td><button class="delete-btn" onclick="deleteLearner(${i})">Delete</button></td>
+    </tr>`;
+  });
+  html += `</table>`;
+  div.innerHTML = html;
+}
+
+function deleteLearner(index){
+  if(confirm("Delete this learner?")){
+    learners.splice(index,1);
+    localStorage.setItem("schoolLearners", JSON.stringify(learners));
+    displayLearners();
+  }
+}
+
+// -------- USERS --------
+function addUser(){
+  const username = document.getElementById("newUsername").value.trim();
+  const password = document.getElementById("newPassword").value.trim();
+  const role = document.getElementById("newRole").value;
+  if(!username || !password) return alert("Fill all fields!");
+  USERS.push({username,password,role});
+  localStorage.setItem("schoolUsers", JSON.stringify(USERS));
+  displayUsers();
+}
+
+function displayUsers(){
+  const div = document.getElementById("userList");
+  if(USERS.length===0) return div.innerHTML="<p>No users yet.</p>";
+  let html = `<table><tr><th>#</th><th>Username</th><th>Role</th><th>Action</th></tr>`;
+  USERS.forEach((u,i) => {
+    if(u.username==="admin") return;
+    html += `<tr>
+      <td>${i+1}</td>
+      <td>${u.username}</td>
+      <td>${u.role}</td>
+      <td><button class="delete-btn" onclick="deleteUser(${i})">Delete</button></td>
+    </tr>`;
+  });
+  html += `</table>`;
+  div.innerHTML = html;
+}
+
+function deleteUser(index){
+  if(confirm("Delete this user?")){
+    USERS.splice(index,1);
+    localStorage.setItem("schoolUsers", JSON.stringify(USERS));
+    displayUsers();
+  }
+}
+
+// -------- SUBJECTS --------
+function addSubject(){
+  const sub = document.getElementById("newSubject").value.trim();
+  if(!sub) return alert("Enter subject name!");
+  if(subjects.includes(sub)) return alert("Already exists!");
+  subjects.push(sub);
+  localStorage.setItem("schoolSubjects", JSON.stringify(subjects));
+  displaySubjects();
+}
+
+function displaySubjects(){
+  const div = document.getElementById("subjectList");
+  if(subjects.length===0) return div.innerHTML="<p>No subjects yet.</p>";
+  let html = `<table><tr><th>#</th><th>Subject</th><th>Action</th></tr>`;
+  subjects.forEach((s,i)=>{
+    html += `<tr><td>${i+1}</td><td>${s}</td><td><button class="delete-btn" onclick="deleteSubject(${i})">Delete</button></td></tr>`;
+  });
+  html += `</table>`;
+  div.innerHTML = html;
+}
+
+function deleteSubject(index){
+  if(confirm("Delete this subject?")){
+    subjects.splice(index,1);
+    localStorage.setItem("schoolSubjects", JSON.stringify(subjects));
+    displaySubjects();
+  }
+}
+
+// -------- MARKS --------
+function showMarksTab(){
+  const sSel = document.getElementById("markStudent");
+  const subSel = document.getElementById("markSubject");
+  sSel.innerHTML = learners.map(l=>`<option value="${l.sid}">${l.name} (${l.class})</option>`).join("");
+  subSel.innerHTML = subjects.map(s=>`<option value="${s}">${s}</option>`).join("");
+  displayMarks();
+}
+
+function addMark(){
+  const sid = document.getElementById("markStudent").value;
+  const subject = document.getElementById("markSubject").value;
+  const score = parseFloat(document.getElementById("markScore").value);
+  if(isNaN(score) || score<0 || score>100) return alert("Enter valid mark!");
+  marks.push({sid,subject,score});
+  localStorage.setItem("schoolMarks", JSON.stringify(marks));
+  displayMarks();
+}
+
+function displayMarks(){
+  const div = document.getElementById("marksList");
+  if(marks.length===0) return div.innerHTML="<p>No marks recorded yet.</p>";
+  let html = `<table><tr><th>#</th><th>Student</th><th>Subject</th><th>Score</th></tr>`;
+  marks.forEach((m,i)=>{
+    const learner = learners.find(l=>l.sid===m.sid);
+    html += `<tr><td>${i+1}</td><td>${learner?learner.name:m.sid}</td><td>${m.subject}</td><td>${m.score}</td></tr>`;
+  });
+  html += `</table>`;
+  div.innerHTML = html;
+}
+
+// -------- BULK SUBJECT CREATION --------
+function bulkAddSubjects(){
+  const text = document.getElementById("bulkSubjects").value.trim();
+  if(!text) return alert("Please enter some subject names!");
+  let newSubs = text.split(/[\n,]+/).map(s=>s.trim()).filter(s=>s);
+  let added = 0;
+  newSubs.forEach(sub=>{
+    if(!subjects.includes(sub)){
+      subjects.push(sub);
+      added++;
+    }
+  });
+  localStorage.setItem("schoolSubjects", JSON.stringify(subjects));
+  displaySubjects();
+  document.getElementById("bulkSubjectStatus").textContent = `${added} subjects added successfully!`;
+  document.getElementById("bulkSubjects").value = "";
+}
+
+// -------- INITIALIZATION --------
+displayUsers();
+displayLearners();
+displaySubjects();
+displayMarks();
+</script>
+</body>
+</html>
